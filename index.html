@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势识别 - 训练模式</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 20px;
+            color: #fff;
+        }
+
+        /* 右上角摄像头小窗 */
+        .webcam-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 320px;
+            height: 240px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            z-index: 1000;
+            background: #000;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+            pointer-events: none;
+        }
+
+        .gesture-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.8);
+            padding: 6px 10px;
+            font-size: 12px;
+            text-align: center;
+            z-index: 10;
+        }
+
+        /* 主内容区域 */
+        .main-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            margin-top: 20px;
+        }
+
+        /* 左侧：训练按钮区 */
+        .training-panel {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 20px;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #aaa;
+        }
+
+        .training-buttons {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+        }
+
+        .train-btn {
+            width: 60px;
+            height: 60px;
+            border: none;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            position: relative;
+        }
+
+        .train-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.05);
+        }
+
+        .train-btn.active {
+            background: rgba(76, 175, 80, 0.5);
+            border: 2px solid #4CAF50;
+        }
+
+        .train-btn .sample-count {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        /* 识别按钮 */
+        .recognize-btn {
+            margin-top: 20px;
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .recognize-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .recognize-btn.recording {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            animation: pulse 1s infinite;
+        }
+
+        .clear-btn {
+            margin-top: 10px;
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .clear-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(250, 112, 154, 0.4);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* 右侧：数字图片显示区域 */
+        .number-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .number-display {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+            background: #000;
+            border: 3px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .number-display.active {
+            border-color: rgba(255, 107, 157, 0.5);
+            transform: scale(1.05);
+        }
+
+        .number-title {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 18px;
+            z-index: 10;
+            backdrop-filter: blur(4px);
+        }
+
+        #numberImage {
+            width: 500px;
+            height: 500px;
+            object-fit: contain;
+            background: #000;
+            display: none;
+        }
+
+        #numberImage.visible {
+            display: block;
+        }
+
+        .number-placeholder {
+            width: 500px;
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.3);
+            font-size: 96px;
+            font-weight: bold;
+        }
+
+        .number-placeholder.hidden {
+            display: none;
+        }
+
+        .number-placeholder span:last-child {
+            font-size: 18px;
+            margin-top: 15px;
+        }
+
+        .status {
+            padding: 15px 30px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            font-size: 18px;
+            text-align: center;
+            backdrop-filter: blur(4px);
+            min-width: 300px;
+        }
+
+        .status.number {
+            background: rgba(255, 107, 157, 0.2);
+            color: #ff6b9d;
+            font-size: 48px;
+            font-weight: bold;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        button.start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        button.stop-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+        }
+
+        .training-status {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            font-size: 12px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- 右上角摄像头小窗 -->
+    <div class="webcam-container">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        <div class="gesture-info" id="gestureInfo">等待启动...</div>
+    </div>
+
+    <!-- 主内容区域 -->
+    <div class="main-container">
+        <!-- 左侧训练面板 -->
+        <div class="training-panel">
+            <div class="panel-title">🎯 训练模式 - 点击数字按钮录制手势</div>
+            <div class="training-buttons">
+                <button class="train-btn" data-number="0">0<span class="sample-count">0</span></button>
+                <button class="train-btn" data-number="1">1<span class="sample-count">0</span></button>
+                <button class="train-btn" data-number="2">2<span class="sample-count">0</span></button>
+                <button class="train-btn" data-number="3">3<span class="sample-count">0</span></button>
+                <button class="train-btn" data-number="4">4<span class="sample-count">0</span></button>
+                <button class="train-btn" data-number="5">5<span class="sample-count">0</span></button>
+                <button class="train-btn" data-number="6">6<span class="sample-count">0</span></button>
+                <button class="train-btn" data-number="7">7<span class="sample-count">0</span></button>
+                <button class="train-btn" data-number="8">8<span class="sample-count">0</span></button>
+                <button class="train-btn" data-number="9">9<span class="sample-count">0</span></button>
+            </div>
+            <button class="recognize-btn" id="recognizeBtn">🔍 按住识别手势</button>
+            <div class="training-status" id="trainingStatus">已录制: 0/10 个数字</div>
+            <button class="clear-btn" id="clearBtn">🗑️ 清除所有训练数据</button>
+        </div>
+
+        <!-- 右侧数字图片显示区域 -->
+        <div class="number-container">
+            <div class="number-display" id="numberDisplay">
+                <span class="number-title">数字手势识别 (0-9)</span>
+                <img id="numberImage" alt="数字手势">
+                <div class="number-placeholder" id="numberPlaceholder">
+                    <span>?</span>
+                    <span>先训练，再识别</span>
+                </div>
+            </div>
+
+            <div class="status" id="numberStatus">点击数字按钮录制手势样本</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="startBtn" class="start-btn">启动摄像头</button>
+        <button id="stopBtn" class="stop-btn" style="display:none;">停止摄像头</button>
+    </div>
+
+    <!-- MediaPipe Hands 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const numberImage = document.getElementById('numberImage');
+        const numberPlaceholder = document.getElementById('numberPlaceholder');
+        const numberDisplay = document.getElementById('numberDisplay');
+        const numberStatus = document.getElementById('numberStatus');
+        const gestureInfo = document.getElementById('gestureInfo');
+        const trainingStatus = document.getElementById('trainingStatus');
+        const recognizeBtn = document.getElementById('recognizeBtn');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const trainBtns = document.querySelectorAll('.train-btn');
+
+        // 训练数据：每个数字存储多个手势样本
+        const trainingData = {
+            0: [], 1: [], 2: [], 3: [], 4: [],
+            5: [], 6: [], 7: [], 8: [], 9: []
+        };
+
+        // 状态
+        let isRecognizing = false;
+        let isCameraRunning = false;
+
+        const numberImageFiles = ['0.png', '1.png', '2.png', '3.png', '4.png', '5.png', '6.png', '7.png', '8.png', '9.png'];
+
+        // 本地存储键名
+        const STORAGE_KEY = 'gestureTrainingData';
+
+        // 保存训练数据到localStorage
+        function saveTrainingData() {
+            const dataToSave = {};
+            for (let num = 0; num <= 9; num++) {
+                dataToSave[num] = trainingData[num];
+            }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+            console.log('训练数据已保存:', dataToSave);
+        }
+
+        // 从localStorage加载训练数据
+        function loadTrainingData() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    for (let num = 0; num <= 9; num++) {
+                        if (parsed[num] && Array.isArray(parsed[num])) {
+                            trainingData[num] = parsed[num];
+                        }
+                    }
+                    console.log('训练数据已加载:', trainingData);
+
+                    // 更新UI显示样本数量
+                    trainBtns.forEach(btn => {
+                        const num = btn.dataset.number;
+                        const countSpan = btn.querySelector('.sample-count');
+                        countSpan.textContent = trainingData[num].length;
+                    });
+                    updateTrainingStatus();
+                } catch (e) {
+                    console.error('加载训练数据失败:', e);
+                }
+            }
+        }
+
+        // 提取手势特征（手指伸展程度、相对位置等）
+        function extractFeatures(landmarks) {
+            const features = [];
+
+            // MediaPipe 手部关键点索引:
+            // 0: 手腕
+            // 1-4: 拇指 (指根到指尖)
+            // 5-8: 食指 (指根到指尖)
+            // 9-12: 中指
+            // 13-16: 无名指
+            // 17-20: 小指
+
+            // 计算手掌大小（手腕到中指指根的距离作为基准）
+            const palmSize = distance(landmarks[0], landmarks[9]);
+
+            // 1. 每个手指的伸展程度（指尖到指根的距离，归一化）
+            const fingerTips = [4, 8, 12, 16, 20]; // 指尖
+            const fingerBases = [2, 5, 9, 13, 17]; // 指根（近关节）
+            for (let i = 0; i < 5; i++) {
+                const tip = landmarks[fingerTips[i]];
+                const base = landmarks[fingerBases[i]];
+                const fingerLength = distance(tip, base) / palmSize;
+                features.push(fingerLength);
+            }
+
+            // 2. 指尖到手腕的距离（表示手指伸展方向）
+            for (let i = 0; i < 5; i++) {
+                const tip = landmarks[fingerTips[i]];
+                const wrist = landmarks[0];
+                features.push(distance(tip, wrist) / palmSize);
+            }
+
+            // 3. 手指之间的角度（使用点积）
+            // 拇指-食指, 食指-中指, 中指-无名指, 无名指-小指
+            const angles = [
+                [4, 8, 0],   // 拇指和食指的夹角
+                [8, 12, 0],  // 食指和中指
+                [12, 16, 0], // 中指和无名指
+                [16, 20, 0]  // 无名指和小指
+            ];
+
+            for (const [i, j, centerIdx] of angles) {
+                const center = landmarks[centerIdx];
+                const v1 = normalizeVector(landmarks[i].x - center.x, landmarks[i].y - center.y);
+                const v2 = normalizeVector(landmarks[j].x - center.x, landmarks[j].y - center.y);
+                const dot = v1.x * v2.x + v1.y * v2.y;
+                features.push(dot); // -1到1之间，-1表示反向，1表示同向
+            }
+
+            // 4. 手指的弯曲程度（远关节到近关节的距离）
+            const fingerJoints = [
+                [4, 3, 2],  // 拇指
+                [8, 6, 5],  // 食指
+                [12, 10, 9], // 中指
+                [16, 14, 13], // 无名指
+                [20, 18, 17]  // 小指
+            ];
+
+            for (const [tip, mid, base] of fingerJoints) {
+                const straightDist = distance(landmarks[tip], landmarks[base]) / palmSize;
+                const midPointDist = (distance(landmarks[tip], landmarks[mid]) + distance(landmarks[mid], landmarks[base])) / palmSize;
+                const bendness = straightDist / midPointDist; // 1表示伸直，<1表示弯曲
+                features.push(bendness);
+            }
+
+            return features;
+        }
+
+        // 辅助函数：计算两点距离
+        function distance(p1, p2) {
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        // 辅助函数：归一化向量
+        function normalizeVector(x, y) {
+            const len = Math.sqrt(x * x + y * y);
+            if (len === 0) return { x: 0, y: 0 };
+            return { x: x / len, y: y / len };
+        }
+
+        // 计算两个特征向量的相似度（加权欧氏距离）
+        function calculateSimilarity(features1, features2) {
+            let totalDistance = 0;
+            let totalWeight = 0;
+
+            // 给不同特征类型不同的权重
+            // 前5个：手指伸展程度（权重高）
+            // 中间5个：指尖到手腕距离（权重高）
+            // 接下来4个：手指角度（权重中）
+            // 最后5个：弯曲程度（权重高）
+            for (let i = 0; i < features1.length; i++) {
+                let weight = 1.0;
+                if (i < 10) weight = 2.0; // 手指伸展程度
+                else if (i < 14) weight = 1.5; // 角度
+                else weight = 2.0; // 弯曲程度
+
+                const diff = features1[i] - features2[i];
+                totalDistance += weight * diff * diff;
+                totalWeight += weight;
+            }
+
+            return Math.sqrt(totalDistance / totalWeight);
+        }
+
+        // 归一化手势样本（提取特征向量）
+        function normalizeSample(landmarks) {
+            return extractFeatures(landmarks);
+        }
+
+        // 识别当前手势 - 带调试信息
+        function recognizeGesture(landmarks) {
+            const normalizedSample = normalizeSample(landmarks);
+            let bestNumber = -1;
+            let bestScore = Infinity;
+            const scores = [];
+
+            // 遍历所有已训练的数字
+            for (let num = 0; num <= 9; num++) {
+                if (trainingData[num].length === 0) continue;
+
+                // 计算与该数字所有样本的平均相似度
+                let avgDistance = 0;
+                for (const sample of trainingData[num]) {
+                    avgDistance += calculateSimilarity(normalizedSample, sample);
+                }
+                avgDistance /= trainingData[num].length;
+                scores[num] = avgDistance;
+
+                console.log(`数字${num}: 距离=${avgDistance.toFixed(4)}, 样本数=${trainingData[num].length}`);
+
+                if (avgDistance < bestScore) {
+                    bestScore = avgDistance;
+                    bestNumber = num;
+                }
+            }
+
+            console.log(`最佳匹配: ${bestNumber}, 评分: ${bestScore.toFixed(4)}`);
+
+            // 阈值调整（新特征的距离范围不同）
+            if (bestNumber !== -1) {
+                if (bestScore < 0.15) {
+                    return {
+                        number: bestNumber,
+                        message: `✅ 识别为: ${bestNumber} (相似度: ${((1 - bestScore / 0.15) * 100).toFixed(0)}%)`
+                    };
+                } else if (bestScore < 0.3) {
+                    return {
+                        number: bestNumber,
+                        message: `⚠️ 可能是: ${bestNumber} (相似度: ${((1 - bestScore / 0.3) * 100).toFixed(0)}%)`
+                    };
+                } else {
+                    return {
+                        number: -1,
+                        message: `❌ 未匹配 (最佳: ${bestNumber}, 距离: ${bestScore.toFixed(3)})`
+                    };
+                }
+            }
+
+            return {
+                number: -1,
+                message: '❌ 请先训练数字样本！'
+            };
+        }
+
+        // 更新训练状态显示
+        function updateTrainingStatus() {
+            const trainedCount = Object.values(trainingData).filter(data => data.length > 0).length;
+            const totalSamples = Object.values(trainingData).reduce((sum, data) => sum + data.length, 0);
+            trainingStatus.textContent = `已录制: ${trainedCount}/10 个数字, 共 ${totalSamples} 个样本`;
+        }
+
+        // 初始化 MediaPipe Hands
+        const hands = new Hands({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+
+        // 页面加载时加载训练数据
+        loadTrainingData();
+        hands.onResults(onResults);
+
+        function onResults(results) {
+            ctx.save();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (results.image) {
+                ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            }
+
+            let handDetected = false;
+            let currentLandmarks = null;
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                handDetected = true;
+                const landmarks = results.multiHandLandmarks[0];
+
+                drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
+                    color: '#00FF00',
+                    lineWidth: 2
+                });
+                drawLandmarks(ctx, landmarks, {
+                    color: '#FF0000',
+                    lineWidth: 1,
+                    radius: 2
+                });
+
+                currentLandmarks = landmarks;
+            }
+
+            ctx.restore();
+
+            // 更新手势信息
+            if (handDetected) {
+                gestureInfo.textContent = '检测到手';
+                gestureInfo.style.background = 'rgba(0, 255, 136, 0.6)';
+            } else {
+                gestureInfo.textContent = '未检测到手';
+                gestureInfo.style.background = 'rgba(255,107,107,0.8)';
+            }
+
+            // 如果正在识别，执行识别
+            if (isRecognizing && handDetected && currentLandmarks) {
+                const result = recognizeGesture(currentLandmarks);
+                numberStatus.textContent = result.message;
+                if (result.number !== -1) {
+                    showNumberImage(result.number);
+                }
+            }
+        }
+
+        // 显示数字图片
+        function showNumberImage(num) {
+            numberImage.src = numberImageFiles[num];
+            numberImage.classList.add('visible');
+            numberPlaceholder.classList.add('hidden');
+            numberDisplay.classList.add('active');
+            numberStatus.textContent = `🔢 ${num}`;
+            numberStatus.className = 'status number';
+        }
+
+        // 隐藏数字图片
+        function hideNumberImage() {
+            numberImage.classList.remove('visible');
+            numberPlaceholder.classList.remove('hidden');
+            numberDisplay.classList.remove('active');
+            numberStatus.textContent = '识别中...';
+            numberStatus.className = 'status';
+        }
+
+        // 训练按钮事件
+        trainBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (!isCameraRunning) {
+                    numberStatus.textContent = '请先启动摄像头！';
+                    return;
+                }
+
+                // 录制当前手势样本（延迟录制以让用户准备好）
+                btn.classList.add('active');
+                numberStatus.textContent = `录制数字 ${btn.dataset.number} 样本中...`;
+
+                setTimeout(() => {
+                    // 获取当前的手势数据
+                    hands.onResults((results) => {
+                        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                            const landmarks = results.multiHandLandmarks[0];
+                            // 存储原始关键点数据
+                            const sample = landmarks.map(p => ({ x: p.x, y: p.y }));
+                            trainingData[btn.dataset.number].push(sample);
+
+                            // 更新按钮上的样本计数
+                            const countSpan = btn.querySelector('.sample-count');
+                            countSpan.textContent = trainingData[btn.dataset.number].length;
+
+                            updateTrainingStatus();
+                            numberStatus.textContent = `✅ 数字 ${btn.dataset.number} 样本已录制 (${trainingData[btn.dataset.number].length}个)`;
+
+                            // 保存训练数据到localStorage
+                            saveTrainingData();
+                            console.log('样本已保存到浏览器本地存储');
+
+                            setTimeout(() => {
+                                btn.classList.remove('active');
+                            }, 500);
+                        } else {
+                            numberStatus.textContent = '❌ 未检测到手势，请重试';
+                            btn.classList.remove('active');
+                        }
+
+                        // 恢复正常的onResults处理
+                        hands.onResults(onResults);
+                    });
+                }, 1000);
+            });
+        });
+
+        // 识别按钮事件
+        recognizeBtn.addEventListener('mousedown', () => {
+            if (!isCameraRunning) {
+                numberStatus.textContent = '请先启动摄像头！';
+                return;
+            }
+
+            const trainedCount = Object.values(trainingData).filter(data => data.length > 0).length;
+            if (trainedCount === 0) {
+                numberStatus.textContent = '请先至少录制一个数字的手势样本！';
+                return;
+            }
+
+            isRecognizing = true;
+            recognizeBtn.classList.add('recording');
+            recognizeBtn.textContent = '🔍 识别中...';
+            hideNumberImage();
+        });
+
+        recognizeBtn.addEventListener('mouseup', () => {
+            isRecognizing = false;
+            recognizeBtn.classList.remove('recording');
+            recognizeBtn.textContent = '🔍 按住识别手势';
+        });
+
+        recognizeBtn.addEventListener('mouseleave', () => {
+            if (isRecognizing) {
+                isRecognizing = false;
+                recognizeBtn.classList.remove('recording');
+                recognizeBtn.textContent = '🔍 按住识别手势';
+            }
+        });
+
+        // 清除训练数据按钮事件
+        const clearBtn = document.getElementById('clearBtn');
+        clearBtn.addEventListener('click', () => {
+            if (confirm('确定要清除所有训练数据吗？此操作不可恢复！')) {
+                // 清除内存中的训练数据
+                for (let num = 0; num <= 9; num++) {
+                    trainingData[num] = [];
+                }
+
+                // 清除localStorage
+                localStorage.removeItem(STORAGE_KEY);
+
+                // 更新UI显示
+                trainBtns.forEach(btn => {
+                    const countSpan = btn.querySelector('.sample-count');
+                    countSpan.textContent = '0';
+                });
+                updateTrainingStatus();
+
+                numberStatus.textContent = '✅ 所有训练数据已清除';
+                console.log('训练数据已清除');
+            }
+        });
+
+        // 启动摄像头
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480 }
+                });
+                video.srcObject = stream;
+
+                video.onloadedmetadata = () => {
+                    canvas.width = 320;
+                    canvas.height = 240;
+
+                    const camera = new Camera(video, {
+                        onFrame: async () => {
+                            await hands.send({ image: video });
+                        },
+                        width: 640,
+                        height: 480
+                    });
+                    camera.start();
+
+                    isCameraRunning = true;
+                    gestureInfo.textContent = '检测中...';
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'block';
+                };
+            } catch (error) {
+                console.error('摄像头访问失败:', error);
+                numberStatus.textContent = '❌ 无法访问摄像头: ' + error.message;
+            }
+        }
+
+        // 停止摄像头
+        function stopCamera() {
+            const stream = video.srcObject;
+            if (stream) {
+                const tracks = stream.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            gestureInfo.textContent = '已停止';
+            gestureInfo.style.background = 'rgba(0,0,0,0.8)';
+            isCameraRunning = false;
+
+            startBtn.style.display = 'block';
+            stopBtn.style.display = 'none';
+        }
+
+        // 事件监听
+        startBtn.addEventListener('click', startCamera);
+        stopBtn.addEventListener('click', stopCamera);
+        window.addEventListener('beforeunload', stopCamera);
+    </script>
+</body>
+</html>
