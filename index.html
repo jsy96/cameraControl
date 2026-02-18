@@ -392,14 +392,20 @@
         // 本地存储键名
         const STORAGE_KEY = 'gestureTrainingData';
 
+        // 数据版本号（当算法改变时需要更新）
+        const DATA_VERSION = 2;
+
         // 保存训练数据到localStorage
         function saveTrainingData() {
-            const dataToSave = {};
+            const dataToSave = {
+                version: DATA_VERSION,
+                samples: {}
+            };
             for (let num = 0; num <= 9; num++) {
-                dataToSave[num] = trainingData[num];
+                dataToSave.samples[num] = trainingData[num];
             }
             localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-            console.log('训练数据已保存:', dataToSave);
+            console.log('训练数据已保存');
         }
 
         // 从localStorage加载训练数据
@@ -408,12 +414,20 @@
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
+
+                    // 检查数据版本，如果不兼容则清除
+                    if (!parsed.version || parsed.version !== DATA_VERSION) {
+                        console.warn('数据版本不兼容，清除旧数据');
+                        localStorage.removeItem(STORAGE_KEY);
+                        return;
+                    }
+
                     for (let num = 0; num <= 9; num++) {
-                        if (parsed[num] && Array.isArray(parsed[num])) {
-                            trainingData[num] = parsed[num];
+                        if (parsed.samples[num] && Array.isArray(parsed.samples[num])) {
+                            trainingData[num] = parsed.samples[num];
                         }
                     }
-                    console.log('训练数据已加载:', trainingData);
+                    console.log('训练数据已加载');
 
                     // 更新UI显示样本数量
                     trainBtns.forEach(btn => {
