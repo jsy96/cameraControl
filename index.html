@@ -169,6 +169,37 @@
             transition: all 0.3s ease;
         }
 
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .clear-btn, .export-btn {
+            flex: 1;
+            padding: 10px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .export-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
+        }
+
+        .clear-btn {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
         .clear-btn:hover {
             transform: scale(1.02);
             box-shadow: 0 5px 20px rgba(250, 112, 154, 0.4);
@@ -333,7 +364,10 @@
             </div>
             <button class="recognize-btn" id="recognizeBtn">🔍 按住识别手势</button>
             <div class="training-status" id="trainingStatus">已录制: 0/10 个数字</div>
-            <button class="clear-btn" id="clearBtn">🗑️ 清除所有训练数据</button>
+            <div class="action-buttons">
+                <button class="export-btn" id="exportBtn">📤 导出训练数据</button>
+                <button class="clear-btn" id="clearBtn">🗑️ 清除所有训练数据</button>
+            </div>
         </div>
 
         <!-- 右侧数字图片显示区域 -->
@@ -377,6 +411,15 @@
         const stopBtn = document.getElementById('stopBtn');
         const trainBtns = document.querySelectorAll('.train-btn');
 
+        // ==================== 预置训练数据 ====================
+        // 训练完成后，点击"导出训练数据"，将导出的代码粘贴到这里
+        // 这样下次打开页面就不需要重新训练了
+        const PRESET_DATA = {
+            // 示例格式：导出后替换这里的内容
+            /* 请导出训练数据后粘贴到这里 */
+        };
+        // ====================================================
+
         // 训练数据：每个数字存储多个手势样本
         const trainingData = {
             0: [], 1: [], 2: [], 3: [], 4: [],
@@ -408,8 +451,32 @@
             console.log('训练数据已保存');
         }
 
-        // 从localStorage加载训练数据
+        // 从代码或localStorage加载训练数据（优先使用代码中的预置数据）
         function loadTrainingData() {
+            // 首先尝试从代码中的PRESET_DATA加载
+            if (PRESET_DATA && Object.keys(PRESET_DATA).length > 0) {
+                try {
+                    for (let num = 0; num <= 9; num++) {
+                        if (PRESET_DATA[num] && Array.isArray(PRESET_DATA[num])) {
+                            trainingData[num] = PRESET_DATA[num];
+                        }
+                    }
+                    console.log('从代码加载预置训练数据');
+
+                    // 更新UI显示样本数量
+                    trainBtns.forEach(btn => {
+                        const num = btn.dataset.number;
+                        const countSpan = btn.querySelector('.sample-count');
+                        countSpan.textContent = trainingData[num].length;
+                    });
+                    updateTrainingStatus();
+                    return;
+                } catch (e) {
+                    console.error('加载预置数据失败:', e);
+                }
+            }
+
+            // 如果没有预置数据，尝试从localStorage加载
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 try {
@@ -777,6 +844,32 @@
                 recognizeBtn.classList.remove('recording');
                 recognizeBtn.textContent = '🔍 按住识别手势';
             }
+        });
+
+        // 导出训练数据按钮事件
+        const exportBtn = document.getElementById('exportBtn');
+        exportBtn.addEventListener('click', () => {
+            const trainedCount = Object.values(trainingData).filter(data => data.length > 0).length;
+            if (trainedCount === 0) {
+                alert('没有训练数据可导出！请先录制手势样本。');
+                return;
+            }
+
+            // 生成导出代码
+            const exportCode = `const PRESET_DATA = {
+${Object.entries(trainingData).filter(([num, samples]) => samples.length > 0).map(([num, samples]) =>
+    `    ${num}: ${JSON.stringify(samples)}`
+).join(',\n')}
+};`;
+
+            // 复制到剪贴板
+            navigator.clipboard.writeText(exportCode).then(() => {
+                alert('✅ 训练数据已复制到剪贴板！\n\n请按以下步骤操作：\n1. 打开 index.html 文件\n2. 找到 PRESET_DATA = { 这一行\n3. 将导出的数据替换粘贴到 PRESET_DATA 中\n4. 保存文件\n\n下次打开页面就会自动加载这些训练数据，无需重新训练！');
+            }).catch(err => {
+                // 如果剪贴板API失败，显示在弹窗中
+                console.error('复制失败:', err);
+                prompt('请手动复制以下代码，然后粘贴到 index.html 的 PRESET_DATA 变量中：', exportCode);
+            });
         });
 
         // 清除训练数据按钮事件
