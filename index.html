@@ -790,8 +790,8 @@ const PRESET_DATA = {
                     hands.onResults((results) => {
                         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                             const landmarks = results.multiHandLandmarks[0];
-                            // 存储原始关键点数据
-                            const sample = landmarks.map(p => ({ x: p.x, y: p.y }));
+                            // 存储特征向量（而不是原始坐标）
+                            const sample = extractFeatures(landmarks);
                             trainingData[btn.dataset.number].push(sample);
 
                             // 更新按钮上的样本计数
